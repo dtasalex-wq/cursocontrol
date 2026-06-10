@@ -1,0 +1,6 @@
+{
+  "name": "Gestão de Escola de Informática",
+  "description": "Sistema completo para cadastro de turmas, alunos, controle de frequência, gestão financeira, pagamentos e relatórios estatísticos.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

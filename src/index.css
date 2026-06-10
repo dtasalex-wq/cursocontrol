@@ -1,0 +1,103 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: #0A0A0A;
+  color: #E5E7EB;
+  margin: 0;
+}
+
+/* Base custom styles to integrate nicely */
+input, select, textarea {
+  outline: none;
+}
+
+/* Custom scrollbar for beautiful dark lists */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #222222;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #333333;
+}
+
+/* Printable report stylesheet */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #printable-report-sheet, #printable-report-sheet * {
+    visibility: visible;
+  }
+  #printable-report-sheet {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    background: white !important;
+    color: black !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+}
+
+/* Styles for compiled contracts (restoring standard margins/headings/serif font) */
+.contract-content {
+  font-family: 'Times New Roman', Times, serif;
+  color: #000000 !important;
+  line-height: 1.6;
+}
+
+.contract-content p {
+  margin-bottom: 1.2rem;
+  text-align: justify;
+}
+
+.contract-content h1, 
+.contract-content h2, 
+.contract-content h3, 
+.contract-content h4 {
+  font-weight: bold;
+  color: #000000 !important;
+  margin-top: 1.8rem;
+  margin-bottom: 0.8rem;
+  text-align: center;
+}
+
+.contract-content h1 { font-size: 1.6rem; }
+.contract-content h2 { font-size: 1.35rem; }
+.contract-content h3 { font-size: 1.15rem; }
+
+.contract-content ul {
+  list-style-type: disc;
+  margin-left: 2rem;
+  margin-bottom: 1.2rem;
+}
+
+.contract-content ol {
+  list-style-type: decimal;
+  margin-left: 2rem;
+  margin-bottom: 1.2rem;
+}
+
+.contract-content li {
+  margin-bottom: 0.4rem;
+}
+
+.contract-content strong {
+  font-weight: bold;
+}
