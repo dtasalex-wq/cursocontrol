@@ -51,6 +51,7 @@ export default function ListaEspera({
   // Form Modal States
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Espera | null>(null);
+  const [selectedItem, setSelectedItem] = useState<Espera | null>(null);
 
   // Form Fields
   const [nome, setNome] = useState('');
@@ -297,12 +298,8 @@ export default function ListaEspera({
                 <tr className="bg-[#181818] border-b border-[#222222] text-[#9CA3AF] uppercase font-bold tracking-wider font-mono">
                   <th className="px-6 py-4">Interessado</th>
                   <th className="px-6 py-4">Turma Desejada</th>
-                  <th className="px-6 py-4">Contato</th>
-                  <th className="px-6 py-4">Cidade</th>
                   <th className="px-6 py-4">Turno</th>
                   <th className="px-6 py-4">Data Registro</th>
-                  <th className="px-6 py-4 text-center">Status</th>
-                  <th className="px-6 py-4 text-right">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#222222]">
@@ -311,11 +308,17 @@ export default function ListaEspera({
                     {/* Name / Info */}
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-indigo-400 font-bold text-xs uppercase">
+                        <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-indigo-400 font-bold text-xs uppercase shrink-0">
                           {item.nome.substring(0, 2)}
                         </div>
                         <div>
-                          <p className="font-semibold text-white text-xs">{item.nome}</p>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedItem(item)}
+                            className="font-semibold text-indigo-400 hover:text-indigo-300 text-xs text-left cursor-pointer hover:underline transition"
+                          >
+                            {item.nome}
+                          </button>
                         </div>
                       </div>
                     </td>
@@ -323,19 +326,6 @@ export default function ListaEspera({
                     {/* Course */}
                     <td className="px-6 py-4 font-semibold text-gray-200">
                       {item.curso}
-                    </td>
-
-                    {/* Contact */}
-                    <td className="px-6 py-4 font-mono text-gray-300">
-                      <div className="flex items-center gap-1.5">
-                        <Phone className="w-3.5 h-3.5 text-gray-500 shrink-0" />
-                        <span>{item.contato}</span>
-                      </div>
-                    </td>
-
-                    {/* Cidade */}
-                    <td className="px-6 py-4 font-semibold text-gray-300">
-                      {item.cidade || '-'}
                     </td>
 
                     {/* Shift */}
@@ -354,56 +344,6 @@ export default function ListaEspera({
                     {/* Registration Date */}
                     <td className="px-6 py-4 font-mono text-gray-400">
                       {new Date(item.dataRegistro).toLocaleDateString('pt-BR')}
-                    </td>
-
-                    {/* Status Badge / Matricula Button */}
-                    <td className="px-6 py-4 text-center">
-                      {item.status === 'Pendente' && onPromoteToStudent ? (
-                        <button
-                          type="button"
-                          onClick={() => onPromoteToStudent(item)}
-                          title="Clique para iniciar matrícula"
-                          className="inline-flex items-center gap-1.5 text-[10px] uppercase font-black px-2.5 py-1 rounded-md border font-mono bg-amber-500/15 border-amber-500/30 text-amber-400 hover:bg-[#F59E0B] hover:text-[#0A0A0A] hover:border-transparent transition cursor-pointer font-bold shadow-sm shadow-amber-500/5 select-none"
-                        >
-                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse shrink-0"></span>
-                          Matricular
-                        </button>
-                      ) : (
-                        <span className={`inline-block text-[10px] uppercase font-black px-2.5 py-1 rounded-md border font-mono ${
-                          item.status === 'Matriculado'
-                            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-                            : 'bg-red-500/10 border-red-500/30 text-red-400'
-                        }`}>
-                          {item.status}
-                        </span>
-                      )}
-                    </td>
-
-                    {/* Actions column */}
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2 text-gray-400">
-
-                        <button
-                          type="button"
-                          onClick={() => handleOpenEdit(item)}
-                          title="Editar cadastro"
-                          className="p-1.5 bg-[#1B1B1B] hover:bg-[#2A2A2A] rounded-lg text-gray-300 hover:text-white cursor-pointer transition border border-[#282828]"
-                        >
-                          <Edit className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (window.confirm(`Excluir ${item.nome} da lista de espera?`)) {
-                              onDeleteEspera(item.id);
-                            }
-                          }}
-                          title="Excluir cadastro"
-                          className="p-1.5 bg-[#1B1B1B] hover:bg-red-500/10 text-gray-400 hover:text-red-400 rounded-lg cursor-pointer transition border border-[#282828]"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
                     </td>
                   </tr>
                 ))}
@@ -561,6 +501,142 @@ export default function ListaEspera({
                 </div>
 
               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Details Dialog Modal */}
+      <AnimatePresence>
+        {selectedItem && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm select-none">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-[#111111] border border-[#222222] rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-in fade-in duration-200"
+            >
+              {/* Modal Header */}
+              <div className="px-6 py-4 border-b border-[#222222] flex items-center justify-between">
+                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  <User className="w-4 h-4 text-indigo-400" />
+                  Detalhes do Interessado
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setSelectedItem(null)}
+                  className="p-1 hover:bg-[#222222] text-gray-400 hover:text-white rounded-full transition cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div className="px-6 py-5 space-y-4 text-xs">
+                {/* Nome */}
+                <div className="flex justify-between py-2 border-b border-[#222222]">
+                  <span className="text-gray-500 font-bold uppercase tracking-wider">Nome</span>
+                  <span className="font-semibold text-white text-right">{selectedItem.nome}</span>
+                </div>
+
+                {/* Turma Desejada */}
+                <div className="flex justify-between py-2 border-b border-[#222222]">
+                  <span className="text-gray-500 font-bold uppercase tracking-wider">Turma Desejada</span>
+                  <span className="font-semibold text-gray-200 text-right">{selectedItem.curso}</span>
+                </div>
+
+                {/* Contato */}
+                <div className="flex justify-between py-2 border-b border-[#222222]">
+                  <span className="text-gray-500 font-bold uppercase tracking-wider">Contato</span>
+                  <span className="font-mono text-gray-300 text-right">{selectedItem.contato}</span>
+                </div>
+
+                {/* Cidade */}
+                <div className="flex justify-between py-2 border-b border-[#222222]">
+                  <span className="text-gray-500 font-bold uppercase tracking-wider">Cidade</span>
+                  <span className="font-semibold text-gray-300 text-right">{selectedItem.cidade || '-'}</span>
+                </div>
+
+                {/* Turno */}
+                <div className="flex justify-between py-2 border-b border-[#222222] items-center">
+                  <span className="text-gray-500 font-bold uppercase tracking-wider">Turno</span>
+                  <span className={`inline-flex items-center gap-1 text-[10px] uppercase font-bold px-2 py-1 rounded-md font-mono ${
+                    selectedItem.turno === 'Manhã' 
+                      ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' 
+                      : selectedItem.turno === 'Tarde' 
+                      ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' 
+                      : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
+                  }`}>
+                    {selectedItem.turno}
+                  </span>
+                </div>
+
+                {/* Data de Registro */}
+                <div className="flex justify-between py-2 border-b border-[#222222]">
+                  <span className="text-gray-500 font-bold uppercase tracking-wider">Data de Registro</span>
+                  <span className="font-mono text-gray-400 text-right">
+                    {new Date(selectedItem.dataRegistro).toLocaleDateString('pt-BR')}
+                  </span>
+                </div>
+
+                {/* Status */}
+                <div className="flex justify-between py-2 border-b border-[#222222] items-center">
+                  <span className="text-gray-500 font-bold uppercase tracking-wider">Status</span>
+                  <span className={`inline-block text-[10px] uppercase font-black px-2.5 py-1 rounded-md border font-mono ${
+                    selectedItem.status === 'Matriculado'
+                      ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                      : selectedItem.status === 'Pendente'
+                      ? 'bg-amber-500/10 border-amber-500/30 text-amber-400'
+                      : 'bg-red-500/10 border-red-500/30 text-red-400'
+                  }`}>
+                    {selectedItem.status}
+                  </span>
+                </div>
+
+                {/* Action Buttons inside Modal */}
+                <div className="pt-5 flex flex-wrap items-center justify-end gap-3 border-t border-[#222222]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const id = selectedItem.id;
+                      if (window.confirm(`Excluir ${selectedItem.nome} da lista de espera?`)) {
+                        onDeleteEspera(id);
+                        setSelectedItem(null);
+                      }
+                    }}
+                    className="flex items-center justify-center gap-1.5 px-3.5 py-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 hover:text-red-300 rounded-xl font-bold transition cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Excluir
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleOpenEdit(selectedItem);
+                      setSelectedItem(null);
+                    }}
+                    className="flex items-center justify-center gap-1.5 px-3.5 py-2 bg-[#222222] hover:bg-[#2A2A2A] border border-[#333333] text-gray-300 hover:text-white rounded-xl font-bold transition cursor-pointer"
+                  >
+                    <Edit className="w-3.5 h-3.5" />
+                    Editar
+                  </button>
+
+                  {selectedItem.status === 'Pendente' && onPromoteToStudent && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onPromoteToStudent(selectedItem);
+                        setSelectedItem(null);
+                      }}
+                      className="flex items-center justify-center gap-1.5 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-[#0A0A0A] rounded-xl font-bold transition cursor-pointer shadow-lg shadow-amber-500/10"
+                    >
+                      <CheckCircle className="w-3.5 h-3.5" />
+                      Matricular
+                    </button>
+                  )}
+                </div>
+              </div>
             </motion.div>
           </div>
         )}
