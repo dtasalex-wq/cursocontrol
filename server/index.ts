@@ -52,8 +52,9 @@ const client = createClient({
 
 // Helper to safely execute SQL queries
 async function runQuery(sql: string, args: any[] = []) {
+  const sanitizedArgs = args.map(arg => arg === undefined ? null : arg);
   try {
-    return await client.execute({ sql, args });
+    return await client.execute({ sql, args: sanitizedArgs });
   } catch (error: any) {
     console.error(`SQL Error: ${error.message} on query: ${sql}`);
     throw error;
