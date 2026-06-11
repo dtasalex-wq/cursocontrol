@@ -18,6 +18,28 @@ const __dirname = path.dirname(__filename);
 const app = express();
 app.use(express.json());
 
+let dbInitialized = false;
+let dbInitializingPromise: Promise<void> | null = null;
+
+async function ensureDb() {
+  if (dbInitialized) return;
+  if (!dbInitializingPromise) {
+    dbInitializingPromise = initDb().then(() => {
+      dbInitialized = true;
+    });
+  }
+  await dbInitializingPromise;
+}
+
+app.use(async (req, res, next) => {
+  try {
+    await ensureDb();
+    next();
+  } catch (err: any) {
+    res.status(500).send(`Database initialization failed: ${err.message}`);
+  }
+});
+
 // Initialize Turso client (falls back to local SQLite file for easy development)
 const dbUrl = process.env.TURSO_DATABASE_URL || 'file:local.db';
 const dbToken = process.env.TURSO_AUTH_TOKEN;
@@ -661,10 +683,14 @@ app.get('*', (req, res, next) => {
 
 // Initialize database schema and start listening
 const port = process.env.PORT || 3001;
-initDb().then(() => {
-  app.listen(port, () => {
-    console.log(`Server API listening on port http://localhost:${port}`);
+if (!process.env.VERCEL) {
+  initDb().then(() => {
+    app.listen(port, () => {
+      console.log(`Server API listening on port http://localhost:${port}`);
+    });
+  }).catch(err => {
+    console.error('Failed to start server due to database error:', err);
   });
-}).catch(err => {
-  console.error('Failed to start server due to database error:', err);
-});
+}
+
+export default app;
