@@ -158,9 +158,19 @@ async function initDb() {
       email TEXT,
       foneContato TEXT,
       cargo TEXT NOT NULL,
-      permissoes TEXT NOT NULL -- JSON stringified array of strings
+      permissoes TEXT NOT NULL, -- JSON stringified array of strings
+      login TEXT,
+      senha TEXT
     )
   `);
+
+  // Run migrations to add login and senha if missing
+  try {
+    await runQuery('ALTER TABLE usuarios ADD COLUMN login TEXT');
+  } catch (e) {}
+  try {
+    await runQuery('ALTER TABLE usuarios ADD COLUMN senha TEXT');
+  } catch (e) {}
 
   // Seed default data if database is empty
   const usersCheck = await runQuery('SELECT COUNT(*) as count FROM usuarios');
@@ -169,10 +179,10 @@ async function initDb() {
 
     // Default users
     await runQuery(`
-      INSERT INTO usuarios (id, nome, foneContato, cargo, permissoes)
+      INSERT INTO usuarios (id, nome, foneContato, cargo, permissoes, login, senha)
       VALUES 
-      ('u_admin', 'Roberto Silva', '(11) 98765-4321', 'Diretor de Ensino', '["dashboard", "alunos", "espera", "cursos_turmas", "frequencia", "pagamentos", "financeiro", "relatorios", "usuarios"]'),
-      ('u_sec', 'Carla Souza', '(11) 97654-3210', 'Secretária', '["dashboard", "alunos", "espera", "cursos_turmas", "relatorios"]')
+      ('u_admin', 'Roberto Silva', '(11) 98765-4321', 'Diretor de Ensino', '["dashboard", "alunos", "espera", "cursos_turmas", "frequencia", "pagamentos", "financeiro", "relatorios", "usuarios"]', 'admin', 'admin123'),
+      ('u_sec', 'Carla Souza', '(11) 97654-3210', 'Secretária', '["dashboard", "alunos", "espera", "cursos_turmas", "relatorios"]', 'secretaria', 'sec123')
     `);
 
     // Default courses
@@ -183,6 +193,10 @@ async function initDb() {
       ('c_python', 'Python Iniciante ao Avançado', 120),
       ('c_info', 'Informática Básica', 60)
     `);
+  } else {
+    // If not empty, make sure seeded users have default logins if they were null/empty
+    await runQuery(`UPDATE usuarios SET login = 'admin', senha = 'admin123' WHERE id = 'u_admin' AND (login IS NULL OR login = '')`);
+    await runQuery(`UPDATE usuarios SET login = 'secretaria', senha = 'sec123' WHERE id = 'u_sec' AND (login IS NULL OR login = '')`);
   }
 
   console.log('Database schema initialization completed.');
@@ -203,7 +217,7 @@ app.get('/api/data', async (req, res) => {
       runQuery('SELECT * FROM pagamentos'),
       runQuery('SELECT * FROM transacoes'),
       runQuery('SELECT * FROM espera'),
-      runQuery('SELECT * FROM usuarios')
+      runQuery('SELECT id, nome, email, foneContato, cargo, permissoes, login FROM usuarios')
     ]);
 
     // Parse stringified columns
@@ -530,12 +544,12 @@ app.post('/api/usuarios', async (req, res) => {
     const u = req.body;
     const id = u.id || `u_${Date.now().toString(36)}`;
     await runQuery(`
-      INSERT INTO usuarios (id, nome, email, foneContato, cargo, permissoes)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO usuarios (id, nome, email, foneContato, cargo, permissoes, login, senha)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `, [
-      id, u.nome, u.email, u.foneContato, u.cargo, JSON.stringify(u.permissoes)
+      id, u.nome, u.email, u.foneContato, u.cargo, JSON.stringify(u.permissoes), u.login, u.senha
     ]);
-    res.json({ ...u, id });
+    res.json({ ...u, id, senha: undefined });
   } catch (err: any) {
     res.status(500).send(err.message);
   }
@@ -545,15 +559,26 @@ app.put('/api/usuarios/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const u = req.body;
-    await runQuery(`
-      UPDATE usuarios SET 
-        nome = ?, email = ?, foneContato = ?, cargo = ?, permissoes = ?
-      WHERE id = ?
-    `, [
-      u.nome, u.email, u.foneContato, u.cargo, JSON.stringify(u.permissoes),
-      id
-    ]);
-    res.json({ ...u, id });
+    if (u.senha && u.senha.trim() !== '') {
+      await runQuery(`
+        UPDATE usuarios SET 
+          nome = ?, email = ?, foneContato = ?, cargo = ?, permissoes = ?, login = ?, senha = ?
+        WHERE id = ?
+      `, [
+        u.nome, u.email, u.foneContato, u.cargo, JSON.stringify(u.permissoes), u.login, u.senha,
+        id
+      ]);
+    } else {
+      await runQuery(`
+        UPDATE usuarios SET 
+          nome = ?, email = ?, foneContato = ?, cargo = ?, permissoes = ?, login = ?
+        WHERE id = ?
+      `, [
+        u.nome, u.email, u.foneContato, u.cargo, JSON.stringify(u.permissoes), u.login,
+        id
+      ]);
+    }
+    res.json({ ...u, id, senha: undefined });
   } catch (err: any) {
     res.status(500).send(err.message);
   }
@@ -564,6 +589,56 @@ app.delete('/api/usuarios/:id', async (req, res) => {
     const { id } = req.params;
     await runQuery('DELETE FROM usuarios WHERE id = ?', [id]);
     res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).send(err.message);
+  }
+});
+
+// 10. Login Endpoint
+app.post('/api/login', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+
+    // Check support credentials first (Suporte / SuporteABC, Master / master123)
+    if (username === 'Suporte' && password === 'SuporteABC') {
+      return res.json({
+        success: true,
+        user: {
+          id: 'u_suporte',
+          nome: 'Suporte',
+          cargo: 'Suporte',
+          permissoes: ['dashboard', 'alunos', 'espera', 'cursos_turmas', 'frequencia', 'pagamentos', 'financeiro', 'relatorios', 'usuarios']
+        }
+      });
+    }
+
+    if (username === 'Master' && password === 'master123') {
+      return res.json({
+        success: true,
+        user: {
+          id: 'u_master',
+          nome: 'Master',
+          cargo: 'Master',
+          permissoes: ['dashboard', 'alunos', 'espera', 'cursos_turmas', 'frequencia', 'pagamentos', 'financeiro', 'relatorios', 'usuarios']
+        }
+      });
+    }
+
+    // Check database users
+    const result = await runQuery('SELECT id, nome, email, foneContato, cargo, permissoes FROM usuarios WHERE login = ? AND senha = ?', [username, password]);
+
+    if (result.rows.length > 0) {
+      const dbUser = result.rows[0];
+      return res.json({
+        success: true,
+        user: {
+          ...dbUser,
+          permissoes: JSON.parse(dbUser.permissoes as string)
+        }
+      });
+    }
+
+    return res.status(401).json({ success: false, message: 'Usuário ou senha incorretos.' });
   } catch (err: any) {
     res.status(500).send(err.message);
   }

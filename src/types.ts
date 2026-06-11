@@ -91,6 +91,8 @@ export interface Usuario {
   foneContato?: string;
   cargo: string;
   permissoes: string[];
+  login?: string;
+  senha?: string;
 }
 
 export interface Curso {

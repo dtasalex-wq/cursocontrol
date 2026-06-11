@@ -93,5 +93,9 @@ export const api = {
   updateUsuario: (usuario: Usuario) => 
     request<Usuario>(`/api/usuarios/${usuario.id}`, { method: 'PUT', body: JSON.stringify(usuario) }),
   deleteUsuario: (id: string) => 
-    request<{ success: boolean }>(`/api/usuarios/${id}`, { method: 'DELETE' })
+    request<{ success: boolean }>(`/api/usuarios/${id}`, { method: 'DELETE' }),
+
+  // Auth
+  login: (credentials: { username: string; password: string }) =>
+    request<{ success: boolean; user: Usuario }>('/api/login', { method: 'POST', body: JSON.stringify(credentials) })
 };

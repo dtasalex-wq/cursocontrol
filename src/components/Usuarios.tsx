@@ -42,6 +42,8 @@ export default function Usuarios({
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>([
     'dashboard', 'alunos', 'espera', 'cursos_turmas', 'relatorios'
   ]);
+  const [login, setLogin] = useState('');
+  const [senha, setSenha] = useState('');
   const [userError, setUserError] = useState('');
   const [userSuccess, setUserSuccess] = useState('');
 
@@ -65,6 +67,8 @@ export default function Usuarios({
     setFoneContato('');
     setCargo('Secretário');
     setSelectedPermissions(['dashboard', 'alunos', 'espera', 'cursos_turmas', 'relatorios']);
+    setLogin('');
+    setSenha('');
     setUserError('');
     setUserSuccess('');
     setIsFormOpen(true);
@@ -77,6 +81,8 @@ export default function Usuarios({
     setFoneContato(user.foneContato || '');
     setCargo(user.cargo);
     setSelectedPermissions(user.permissoes || []);
+    setLogin(user.login || '');
+    setSenha('');
     setUserError('');
     setUserSuccess('');
     setIsFormOpen(true);
@@ -88,8 +94,26 @@ export default function Usuarios({
     setUserError('');
     setUserSuccess('');
 
-    if (!nome.trim() || !foneContato.trim()) {
-      setUserError('Nome e Telefone de Contato são obrigatórios.');
+    if (!nome.trim() || !foneContato.trim() || !login.trim()) {
+      setUserError('Nome, Telefone e Login são obrigatórios.');
+      return;
+    }
+
+    if (!editingUser && !senha.trim()) {
+      setUserError('Senha é obrigatória para novos cadastros.');
+      return;
+    }
+
+    // Check login uniqueness
+    const exists = usuarios.some(u => u.login === login.trim() && u.id !== (editingUser?.id || ''));
+    if (exists) {
+      setUserError('Este Login já está cadastrado por outro profissional.');
+      return;
+    }
+
+    // Reserve special logins
+    if (login.trim().toLowerCase() === 'suporte' || login.trim().toLowerCase() === 'master') {
+      setUserError('Os logins "Suporte" e "Master" são de uso reservado do sistema.');
       return;
     }
 
@@ -102,7 +126,9 @@ export default function Usuarios({
       nome: nome.trim(),
       foneContato: foneContato.trim(),
       cargo,
-      permissoes: selectedPermissions
+      permissoes: selectedPermissions,
+      login: login.trim(),
+      senha: senha.trim()
     };
 
     if (editingUser) {
@@ -113,12 +139,14 @@ export default function Usuarios({
       alert('Cadastro de profissional editado com sucesso!');
     } else {
       onAddUsuario(userData);
-      alert('Novo usuário cadastrado com sucesso! Use o seletor no rodapé do menu lateral para testar.');
+      alert('Novo usuário cadastrado com sucesso!');
     }
 
     setNome('');
     setFoneContato('');
     setCargo('Secretário');
+    setLogin('');
+    setSenha('');
     setSelectedPermissions(['dashboard', 'alunos', 'espera', 'cursos_turmas', 'relatorios']);
     setIsFormOpen(false);
   };
@@ -169,17 +197,21 @@ export default function Usuarios({
             <thead>
               <tr className="bg-[#0D0D0D] border-b border-[#222222] text-[#9CA3AF] uppercase font-bold tracking-wider font-mono">
                 <th className="px-5 py-3.5">Nome / Cargo</th>
+                <th className="px-5 py-3.5">Login</th>
                 <th className="px-5 py-3.5">Telefone de Contato</th>
                 <th className="px-5 py-3.5">Módulos de Acesso</th>
                 <th className="px-5 py-3.5 text-right">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#222222]">
-              {usuarios.map(u => (
+              {usuarios.filter(u => u.id !== 'u_suporte' && u.id !== 'u_master').map(u => (
                 <tr key={u.id} className="hover:bg-[#161616] transition">
                   <td className="px-5 py-4">
                     <p className="font-bold text-white text-sm">{u.nome}</p>
                     <span className="text-[10px] text-indigo-400 font-mono font-bold uppercase tracking-wider mt-0.5 block">{u.cargo}</span>
+                  </td>
+                  <td className="px-5 py-4 font-mono text-gray-300 text-sm">
+                    <span>{u.login || '-'}</span>
                   </td>
                   <td className="px-5 py-4 font-mono text-gray-300 text-sm">
                     <div className="flex items-center gap-1.5">
@@ -299,6 +331,34 @@ export default function Usuarios({
                       onChange={(e) => setFoneContato(e.target.value)}
                       required
                       placeholder="Ex: (11) 98888-8888"
+                      className="w-full text-xs font-semibold px-3.5 py-2.5 bg-[#1A1A1A] border border-[#222222] rounded-xl text-white focus:border-indigo-500 focus:bg-[#0A0A0A] transition outline-none"
+                    />
+                  </div>
+
+                  {/* Login field */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Login / Nome de Usuário *</label>
+                    <input
+                      type="text"
+                      value={login}
+                      onChange={(e) => setLogin(e.target.value)}
+                      required
+                      placeholder="Ex: joao.silva"
+                      className="w-full text-xs font-semibold px-3.5 py-2.5 bg-[#1A1A1A] border border-[#222222] rounded-xl text-white focus:border-indigo-500 focus:bg-[#0A0A0A] transition outline-none"
+                    />
+                  </div>
+
+                  {/* Password field */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
+                      Senha {editingUser ? '(em branco para manter)' : '*'}
+                    </label>
+                    <input
+                      type="password"
+                      value={senha}
+                      onChange={(e) => setSenha(e.target.value)}
+                      required={!editingUser}
+                      placeholder={editingUser ? "Manter atual" : "Digite a senha"}
                       className="w-full text-xs font-semibold px-3.5 py-2.5 bg-[#1A1A1A] border border-[#222222] rounded-xl text-white focus:border-indigo-500 focus:bg-[#0A0A0A] transition outline-none"
                     />
                   </div>

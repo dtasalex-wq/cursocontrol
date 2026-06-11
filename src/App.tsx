@@ -48,7 +48,8 @@ import {
   X,
   BookOpen,
   Clock,
-  Shield
+  Shield,
+  ShieldAlert
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -71,6 +72,12 @@ if (!localStorage.getItem('escola_usuarios_migrated_v3')) {
 
 export default function App() {
   
+  // Authentication & Logged in User state
+  const [loggedInUser, setLoggedInUser] = useState<Usuario | null>(() => {
+    const raw = localStorage.getItem('escola_logged_in_user');
+    return raw ? JSON.parse(raw) : null;
+  });
+
   // Navigation
   const [activeTab, setActiveTab] = useState('dashboard');
   const [activeSubTab, setActiveSubTab] = useState<'turmas' | 'cursos'>('cursos');
@@ -92,28 +99,10 @@ export default function App() {
   const [usuarios, setUsuarios] = useState<Usuario[]>(() => {
     const raw = localStorage.getItem('escola_usuarios');
     if (raw) return JSON.parse(raw);
-    return [
-      {
-        id: 'u_admin',
-        nome: 'Roberto Silva',
-        foneContato: '(11) 98765-4321',
-        cargo: 'Diretor de Ensino',
-        permissoes: ['dashboard', 'alunos', 'espera', 'cursos_turmas', 'frequencia', 'pagamentos', 'financeiro', 'relatorios', 'usuarios']
-      },
-      {
-        id: 'u_sec',
-        nome: 'Carla Souza',
-        foneContato: '(11) 97654-3210',
-        cargo: 'Secretária',
-        permissoes: ['dashboard', 'alunos', 'espera', 'cursos_turmas', 'relatorios']
-      }
-    ];
+    return [];
   });
 
-  const [activeUserId, setActiveUserId] = useState<string>(() => {
-    const raw = localStorage.getItem('escola_active_user_id');
-    return raw || 'u_admin';
-  });
+  const activeUserId = loggedInUser?.id || '';
 
   const [timbre, setTimbre] = useState<string>(() => {
     return localStorage.getItem('escola_timbre') || '';
@@ -139,10 +128,6 @@ export default function App() {
   }, [usuarios]);
 
   useEffect(() => {
-    localStorage.setItem('escola_active_user_id', activeUserId);
-  }, [activeUserId]);
-
-  useEffect(() => {
     localStorage.setItem('escola_timbre', timbre);
   }, [timbre]);
 
@@ -162,29 +147,32 @@ export default function App() {
       .catch(err => alert(`Erro ao atualizar operador: ${err.message}`));
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem('escola_logged_in_user');
+    setLoggedInUser(null);
+    setActiveTab('dashboard');
+  };
+
   const handleDeleteUsuario = (id: string) => {
     api.deleteUsuario(id)
       .then(() => {
         setUsuarios(prev => prev.filter(u => u.id !== id));
         if (activeUserId === id) {
-          setActiveUserId('u_admin');
+          handleLogout();
         }
       })
       .catch(err => alert(`Erro ao excluir operador: ${err.message}`));
   };
 
-  const handleSwitchUser = (userId: string) => {
-    setActiveUserId(userId);
-    const targetUser = usuarios.find(u => u.id === userId);
-    if (targetUser && !targetUser.permissoes.includes(activeTab)) {
-      const firstAllowed = targetUser.permissoes[0] || 'dashboard';
-      setActiveTab(firstAllowed);
-    }
-  };
-
 
   // Fetch initial database state from backend
   useEffect(() => {
+    if (!loggedInUser) {
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
     api.fetchData()
       .then(data => {
         setAlunos(data.alunos);
@@ -201,7 +189,7 @@ export default function App() {
         console.error('Failed to load initial data:', err);
         setLoading(false);
       });
-  }, []);
+  }, [loggedInUser]);
 
 
   // ==========================================
@@ -440,9 +428,31 @@ export default function App() {
     { id: 'usuarios', label: 'Usuários e Permissões', icon: Shield }
   ];
 
-  const activeUser = usuarios.find(u => u.id === activeUserId) || usuarios[0];
+  const activeUser = activeUserId === 'u_suporte' ? {
+    id: 'u_suporte',
+    nome: 'Suporte',
+    cargo: 'Suporte',
+    permissoes: ['dashboard', 'alunos', 'espera', 'cursos_turmas', 'frequencia', 'pagamentos', 'financeiro', 'relatorios', 'usuarios']
+  } : activeUserId === 'u_master' ? {
+    id: 'u_master',
+    nome: 'Master',
+    cargo: 'Master',
+    permissoes: ['dashboard', 'alunos', 'espera', 'cursos_turmas', 'frequencia', 'pagamentos', 'financeiro', 'relatorios', 'usuarios']
+  } : (usuarios.find(u => u.id === activeUserId) || loggedInUser);
+
   const allowedTabs = activeUser ? activeUser.permissoes : navItems.map(n => n.id);
   const filteredNavItems = navItems.filter(item => allowedTabs.includes(item.id));
+
+  if (!loggedInUser) {
+    return (
+      <Login 
+        onLoginSuccess={(user) => {
+          localStorage.setItem('escola_logged_in_user', JSON.stringify(user));
+          setLoggedInUser(user);
+        }}
+      />
+    );
+  }
 
   if (loading) {
     return (
@@ -524,18 +534,20 @@ export default function App() {
         </div>
 
         {/* Corporate small footer signature */}
-        <div className="p-5 border-t border-[#222222] text-[10px] text-gray-500 font-mono space-y-1 text-center font-semibold">
-          <div className="bg-[#1A1A1A] p-4 rounded-xl border border-[#333333] text-left">
-            <p className="text-[9px] text-gray-500 font-bold uppercase mb-2">Usuário Ativo</p>
-            <select
-              value={activeUserId}
-              onChange={(e) => handleSwitchUser(e.target.value)}
-              className="w-full bg-[#0A0A0A] text-xs text-gray-300 font-semibold outline-none border border-[#222222] rounded-lg p-1.5 focus:border-indigo-500 cursor-pointer"
+        <div className="p-5 border-t border-[#222222] text-[10px] text-gray-500 font-mono space-y-1 select-none font-semibold no-print">
+          <div className="bg-[#1A1A1A] p-4 rounded-xl border border-[#333333] flex flex-col gap-3">
+            <div>
+              <p className="text-[9px] text-gray-500 font-bold uppercase tracking-wider mb-1">Usuário Logado</p>
+              <p className="text-xs text-white font-bold truncate">{activeUser?.nome || 'Suporte'}</p>
+              <span className="text-[10px] text-indigo-400 font-mono font-bold uppercase tracking-wider">{activeUser?.cargo || 'Suporte'}</span>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-red-500/10 hover:bg-red-650 text-red-400 hover:text-white rounded-lg text-xs font-bold border border-red-500/20 hover:border-transparent transition cursor-pointer"
             >
-              {usuarios.map(u => (
-                <option key={u.id} value={u.id} className="bg-[#111111]">{u.nome} ({u.cargo})</option>
-              ))}
-            </select>
+              <X className="w-3.5 h-3.5" />
+              <span>Sair / Logout</span>
+            </button>
           </div>
         </div>
       </aside>
@@ -700,6 +712,132 @@ export default function App() {
           </AnimatePresence>
         </div>
       </main>
+
+    </div>
+  );
+}
+
+interface LoginProps {
+  onLoginSuccess: (user: Usuario) => void;
+}
+
+function Login({ onLoginSuccess }: LoginProps) {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+
+    try {
+      const response = await api.login({ username, password });
+      if (response.success) {
+        onLoginSuccess(response.user);
+      } else {
+        setError('Erro desconhecido. Tente novamente.');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Usuário ou senha incorretos.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-[#0A0A0A] flex flex-col items-center justify-center p-4 font-sans select-none relative overflow-hidden">
+      
+      {/* Ambient glowing circles */}
+      <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-indigo-500/5 blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] rounded-full bg-violet-500/5 blur-[120px] pointer-events-none" />
+
+      {/* Login Card */}
+      <motion.div 
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, ease: 'easeOut' }}
+        className="w-full max-w-md bg-[#111111] border border-[#222222] rounded-3xl p-8 shadow-2xl relative z-10 flex flex-col space-y-6"
+      >
+        
+        {/* Logo and title */}
+        <div className="flex flex-col items-center text-center space-y-3.5">
+          <div className="w-12 h-12 bg-indigo-650 rounded-2xl flex items-center justify-center shadow-xl shadow-indigo-500/15 text-white border border-indigo-500/10">
+            <BookOpen className="w-6 h-6" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold tracking-tight text-white block uppercase">Escola EduTech</h1>
+            <p className="text-[10px] text-gray-500 font-bold tracking-wider font-mono uppercase mt-1">Painel de Secretaria & Controle</p>
+          </div>
+        </div>
+
+        {/* Login Form */}
+        <form onSubmit={handleSubmit} className="space-y-4 text-left">
+          
+          {error && (
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="p-3.5 bg-red-500/10 border border-red-500/20 rounded-xl flex items-start gap-2.5 text-xs text-red-400 font-semibold"
+            >
+              <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5" />
+              <span>{error}</span>
+            </motion.div>
+          )}
+
+          {/* Username Input */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Usuário</label>
+            <input
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              required
+              disabled={loading}
+              placeholder="Digite seu usuário"
+              className="w-full text-xs font-semibold px-4 py-3 bg-[#161616] border border-[#222222] rounded-xl text-white focus:border-indigo-500 focus:bg-[#0D0D0D] transition outline-none disabled:opacity-50"
+            />
+          </div>
+
+          {/* Password Input */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Senha</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              disabled={loading}
+              placeholder="••••••••"
+              className="w-full text-xs font-semibold px-4 py-3 bg-[#161616] border border-[#222222] rounded-xl text-white focus:border-indigo-500 focus:bg-[#0D0D0D] transition outline-none disabled:opacity-50"
+            />
+          </div>
+
+          {/* Submit Button */}
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-indigo-500/15 hover:shadow-indigo-500/25 transition duration-150 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            {loading ? (
+              <>
+                <div className="w-3.5 h-3.5 border-2 border-t-transparent border-white rounded-full animate-spin" />
+                <span>Autenticando...</span>
+              </>
+            ) : (
+              <span>Entrar no Sistema</span>
+            )}
+          </button>
+
+        </form>
+
+      </motion.div>
+
+      {/* Footer copyright */}
+      <div className="text-[9px] text-gray-600 font-mono mt-6 uppercase tracking-wider relative z-10 font-bold select-none">
+        Tecnologia Escola EduTech © {new Date().getFullYear()}
+      </div>
 
     </div>
   );
